@@ -1,34 +1,189 @@
-#include <SDL3/SDL.h>
 #include <iostream>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#include <SDL3_image/SDL_image.h>
 
-int main() {
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
+struct SDLState
+{
+   SDL_Window* window;
+   SDL_Renderer* renderer; 
+   int width, height, logW, logH;
+   float boardSize, boardX, boardY;
+   float squareSize, squareX, squareY;
+   float cursorX, cursorY;
+   int selectedX = -1;
+   int selectedY = -1;
+};
+
+bool initialize(SDLState &state);
+void drawBoard(SDLState &state);
+void render(SDLState &state);
+void cleanup(SDLState &state);
+
+int main(int argc, char* argv[])
+{
+    SDLState state;
+    state.width = 800;
+    state.height = 600;
+    state.logW = 640;
+    state.logH = 480;
+
+    if (!initialize(state))
+    {
         return 1;
     }
 
-    SDL_Window* window = SDL_CreateWindow("SDL3 Test", 800, 600, 0);
-    if (!window) {
-        std::cerr << "Window creation failed: " << SDL_GetError() << std::endl;
-        return 1;
-    }
-
-    Uint64 startTime = SDL_GetTicks();
+    // game loop
     bool running = true;
-    SDL_Event event;
+    while (running)
+    {
+        // event loop
+        SDL_Event event{ 0 };
+        while (SDL_PollEvent(&event))
+        {
+            switch (event.type)
+            {
+                case SDL_EVENT_QUIT:
+                {
+                    running = false;
+                    break;
+                }
+                case SDL_EVENT_WINDOW_RESIZED:
+                {
+                    state.width = event.window.data1;
+                    state.height = event.window.data2;
+                    break;
+                }
+                case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                {
+                    if (event.button.button == SDL_BUTTON_LEFT)
+                    {
+                        float mouseX;
+                        float mouseY;
+                        SDL_RenderCoordinatesFromWindow(state.renderer, event.button.x, event.button.y, &mouseX, &mouseY);
+                        
+                        state.selectedX = floor((mouseX - state.squareX) / state.squareSize);
+                        state.selectedY = floor((mouseY - state.squareY) / state.squareSize);
 
-    while (running) {
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_EVENT_QUIT) running = false;
+                        // test x, y on mouse click
+                        // std::cout << "x: " << mouseX << ", y: " << mouseY << std::endl;
+                        // std::cout << "x: " << state.selectedX << ", y: " << state.selectedY << std::endl;
+
+                    }
+                }
+                case SDL_EVENT_KEY_DOWN:
+                {
+                    switch (event.key.key)
+                    {
+                        case SDLK_ESCAPE:
+                        {
+                            running = false;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
         }
 
-        // auto-close after 3000ms
-        if (SDL_GetTicks() - startTime >= 3000) {
-            running = false;
-        }
+        render(state);
+    }
+    cleanup(state);
+    return 0;
+}
+
+bool initialize(SDLState &state)
+{
+    bool initSuccess = true;
+
+    if (!SDL_Init(SDL_INIT_VIDEO))
+    {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Error initializing SDL3", nullptr);
+        return false;
     }
 
-    SDL_DestroyWindow(window);
+    // create window
+    state.window = SDL_CreateWindow("title", state.width, state.height, SDL_WINDOW_RESIZABLE);
+    if (!state.window)
+    {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Error creating window", nullptr);
+        cleanup(state);
+        return false;
+    }
+
+    // create renderer
+    state.renderer = SDL_CreateRenderer(state.window, nullptr);
+    if (!state.renderer)
+    {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "error creating renderer", nullptr);
+        cleanup(state);
+        return false;
+    }
+
+    // configure presentation
+    SDL_SetRenderLogicalPresentation(state.renderer, state.logW, state.logH, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    state.boardX = 0.5f * (state.logW - state.logH);
+    state.boardY = 0.0f;
+    state.boardSize = state.logH;
+
+    state.squareSize = state.boardSize * 0.9f * 0.125f;
+    state.squareX = state.boardX + state.boardSize * 0.05f;
+    state.squareY = state.boardY + state.boardSize * 0.05f;
+
+    return initSuccess;
+}
+
+void drawBoard(SDLState &state)
+{
+    SDL_SetRenderDrawColor(state.renderer, 80, 21, 10, 255);
+    SDL_FRect boardRect;
+    boardRect.x = state.boardX;
+    boardRect.y = state.boardY;
+    boardRect.w = state.boardSize;
+    boardRect.h = state.boardSize;
+
+    SDL_RenderFillRect(state.renderer, &boardRect);
+
+    // draw the board
+    for (int x = 0; x < 8; ++x)
+        for (int y = 0; y < 8; ++y)
+        {
+            if ((x+y) % 2) SDL_SetRenderDrawColor(state.renderer, 181, 136, 99, 255);
+            else SDL_SetRenderDrawColor(state.renderer, 240, 217, 181, 255);
+
+            SDL_FRect squareRect;
+            squareRect.x = (state.squareX + state.squareSize * x);
+            squareRect.y = (state.squareY + state.squareSize * y);
+            squareRect.w = state.squareSize;
+            squareRect.h = state.squareSize;
+            SDL_RenderFillRect(state.renderer, &squareRect);
+        }
+    // highlight selected squares
+    if (state.selectedX >= 0 and state.selectedY >= 0 and state.selectedX < 8 and state.selectedY < 8)
+    {
+        SDL_SetRenderDrawColor(state.renderer, 134, 181, 107, 255);
+        SDL_FRect squareRect;
+        squareRect.x = (state.squareX + state.squareSize * state.selectedX);
+        squareRect.y = (state.squareY + state.squareSize * state.selectedY);
+        squareRect.w = state.squareSize;
+        squareRect.h = state.squareSize;
+        SDL_RenderFillRect(state.renderer, &squareRect);
+    }
+}
+
+void render(SDLState &state)
+{
+    SDL_SetRenderDrawColor(state.renderer, 10, 21, 33, 255);
+    SDL_RenderClear(state.renderer);
+
+    drawBoard(state);
+
+    SDL_RenderPresent(state.renderer);
+} 
+
+void cleanup(SDLState &state)
+{
+    SDL_DestroyRenderer(state.renderer);
+    SDL_DestroyWindow(state.window);
     SDL_Quit();
-    return 0;
 }
