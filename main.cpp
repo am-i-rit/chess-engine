@@ -87,7 +87,7 @@ bool initialize(SDLState &state)
     }
 
     // create window
-    state.window = SDL_CreateWindow("Bot-vinnik", state.width, state.height, SDL_WINDOW_RESIZABLE);
+    state.window = SDL_CreateWindow("title", state.width, state.height, SDL_WINDOW_RESIZABLE);
     if (!state.window)
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Error creating window", nullptr);
@@ -131,8 +131,8 @@ void drawBoard(SDLState &state)
     for (int x = 0; x < 8; ++x)
         for (int y = 0; y < 8; ++y)
         {
-            if ((x+y) % 2) SDL_SetRenderDrawColor(state.renderer, 118, 150, 86, 255);
-            else SDL_SetRenderDrawColor(state.renderer, 238, 238, 210, 255);
+            if ((x+y) % 2) SDL_SetRenderDrawColor(state.renderer, 181, 136, 99, 255);
+            else SDL_SetRenderDrawColor(state.renderer, 240, 217, 181, 255);
 
             SDL_FRect squareRect;
             squareRect.x = (state.squareX + state.squareSize * x);
