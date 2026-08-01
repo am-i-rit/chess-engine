@@ -5,11 +5,14 @@
 
 struct SDLState
 {
-   SDL_Window *window;
-   SDL_Renderer *renderer; 
+   SDL_Window* window;
+   SDL_Renderer* renderer; 
    int width, height, logW, logH;
    float boardSize, boardX, boardY;
    float squareSize, squareX, squareY;
+   float cursorX, cursorY;
+   int selectedX = -1;
+   int selectedY = -1;
 };
 
 bool initialize(SDLState &state);
@@ -17,7 +20,7 @@ void drawBoard(SDLState &state);
 void render(SDLState &state);
 void cleanup(SDLState &state);
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     SDLState state;
     state.width = 800;
@@ -53,7 +56,20 @@ int main(int argc, char *argv[])
                 }
                 case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 {
+                    if (event.button.button == SDL_BUTTON_LEFT)
+                    {
+                        float mouseX;
+                        float mouseY;
+                        SDL_RenderCoordinatesFromWindow(state.renderer, event.button.x, event.button.y, &mouseX, &mouseY);
+                        
+                        state.selectedX = floor((mouseX - state.squareX) / state.squareSize);
+                        state.selectedY = floor((mouseY - state.squareY) / state.squareSize);
 
+                        // test x, y on mouse click
+                        // std::cout << "x: " << mouseX << ", y: " << mouseY << std::endl;
+                        // std::cout << "x: " << state.selectedX << ", y: " << state.selectedY << std::endl;
+
+                    }
                 }
                 case SDL_EVENT_KEY_DOWN:
                 {
@@ -128,6 +144,7 @@ void drawBoard(SDLState &state)
 
     SDL_RenderFillRect(state.renderer, &boardRect);
 
+    // draw the board
     for (int x = 0; x < 8; ++x)
         for (int y = 0; y < 8; ++y)
         {
@@ -141,6 +158,17 @@ void drawBoard(SDLState &state)
             squareRect.h = state.squareSize;
             SDL_RenderFillRect(state.renderer, &squareRect);
         }
+    // highlight selected squares
+    if (state.selectedX >= 0 and state.selectedY >= 0 and state.selectedX < 8 and state.selectedY < 8)
+    {
+        SDL_SetRenderDrawColor(state.renderer, 134, 181, 107, 255);
+        SDL_FRect squareRect;
+        squareRect.x = (state.squareX + state.squareSize * state.selectedX);
+        squareRect.y = (state.squareY + state.squareSize * state.selectedY);
+        squareRect.w = state.squareSize;
+        squareRect.h = state.squareSize;
+        SDL_RenderFillRect(state.renderer, &squareRect);
+    }
 }
 
 void render(SDLState &state)
