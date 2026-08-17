@@ -1,7 +1,11 @@
 #include <iostream>
+#include <cmath>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
+#include "chessboard.h"
+
+Chessboard game; 
 
 struct SDLState
 {
@@ -10,19 +14,28 @@ struct SDLState
    int width, height, logW, logH;
    float boardSize, boardX, boardY;
    float squareSize, squareX, squareY;
-   float cursorX, cursorY;
    int selectedX = -1;
    int selectedY = -1;
 };
 
+struct Assets
+{
+    SDL_Texture* pieces[12];
+};
+
 bool initialize(SDLState &state);
+std::string getAssetPath(const std::string &relativePath);
+bool loadAssets(SDLState &state, Assets &assets);
+void cleanupAssets(Assets &assets);
 void drawBoard(SDLState &state);
-void render(SDLState &state);
+void drawPieces(SDLState &state, Assets &assets);
+void render(SDLState &state, Assets &assets);
 void cleanup(SDLState &state);
 
 int main(int argc, char* argv[])
 {
     SDLState state;
+    Assets assets;
     state.width = 800;
     state.height = 600;
     state.logW = 640;
@@ -32,7 +45,11 @@ int main(int argc, char* argv[])
     {
         return 1;
     }
-
+    
+   if (!loadAssets(state, assets))
+    {
+        return 1;
+    }
     // game loop
     bool running = true;
     while (running)
@@ -70,6 +87,7 @@ int main(int argc, char* argv[])
                         // std::cout << "x: " << state.selectedX << ", y: " << state.selectedY << std::endl;
 
                     }
+                    break;
                 }
                 case SDL_EVENT_KEY_DOWN:
                 {
@@ -85,9 +103,9 @@ int main(int argc, char* argv[])
                 }
             }
         }
-
-        render(state);
+        render(state, assets);
     }
+    cleanupAssets(assets);
     cleanup(state);
     return 0;
 }
@@ -123,6 +141,7 @@ bool initialize(SDLState &state)
     // configure presentation
     SDL_SetRenderLogicalPresentation(state.renderer, state.logW, state.logH, SDL_LOGICAL_PRESENTATION_LETTERBOX);
     state.boardX = 0.5f * (state.logW - state.logH);
+    //state.boardX = 5.0f;
     state.boardY = 0.0f;
     state.boardSize = state.logH;
 
@@ -131,6 +150,53 @@ bool initialize(SDLState &state)
     state.squareY = state.boardY + state.boardSize * 0.05f;
 
     return initSuccess;
+}
+
+// resolves a path relative to the executable's own directory,
+// so asset loading works regardless of OS or current working directory
+std::string getAssetPath(const std::string &relativePath)
+{
+    std::string path = std::string(SDL_GetBasePath()) + relativePath;
+    return path;
+}
+
+bool loadAssets(SDLState &state, Assets &assets)
+{
+    static const char* pieceFilenames[12] = {
+        "assets/pieces/white-pawn.png",
+        "assets/pieces/white-knight.png",
+        "assets/pieces/white-bishop.png",
+        "assets/pieces/white-rook.png",
+        "assets/pieces/white-queen.png",
+        "assets/pieces/white-king.png",
+        "assets/pieces/black-pawn.png",
+        "assets/pieces/black-knight.png",
+        "assets/pieces/black-bishop.png",
+        "assets/pieces/black-rook.png",
+        "assets/pieces/black-queen.png",
+        "assets/pieces/black-king.png"
+    };
+ 
+    for (int i = 0; i < 12; ++i)
+    {
+        assets.pieces[i] = IMG_LoadTexture(state.renderer, getAssetPath(pieceFilenames[i]).c_str());
+ 
+        if (!assets.pieces[i])
+        {
+            std::cerr << "Failed to load texture: " << pieceFilenames[i] << " - " << SDL_GetError() << std::endl;
+            return false;
+        }
+    }
+ 
+    return true;
+}
+
+void cleanupAssets(Assets &assets)
+{
+    for (int i = 0; i < 12; ++i)
+    {
+        SDL_DestroyTexture(assets.pieces[i]);
+    }
 }
 
 void drawBoard(SDLState &state)
@@ -159,7 +225,7 @@ void drawBoard(SDLState &state)
             SDL_RenderFillRect(state.renderer, &squareRect);
         }
     // highlight selected squares
-    if (state.selectedX >= 0 and state.selectedY >= 0 and state.selectedX < 8 and state.selectedY < 8)
+    if (state.selectedX >= 0 && state.selectedY >= 0 && state.selectedX < 8 && state.selectedY < 8)
     {
         SDL_SetRenderDrawColor(state.renderer, 134, 181, 107, 255);
         SDL_FRect squareRect;
@@ -171,13 +237,36 @@ void drawBoard(SDLState &state)
     }
 }
 
-void render(SDLState &state)
+// loops over every square, asks the Chessboard what's there,
+// and draws the matching texture if the square isn't empty
+void drawPieces(SDLState &state, Assets &assets)
+{
+    for (int square = 0; square < 64; ++square)
+    {
+        uint8_t piece = game.getPiece(square);
+        if (piece == Empty) continue;
+ 
+        int col = square % 8;
+        int row = square / 8;
+ 
+        SDL_FRect destRect;
+        destRect.x = state.squareX + state.squareSize * col;
+        destRect.y = state.squareY + state.squareSize * row;
+        destRect.w = state.squareSize;
+        destRect.h = state.squareSize;
+ 
+        SDL_RenderTexture(state.renderer, assets.pieces[piece], nullptr, &destRect);
+    }
+}
+
+void render(SDLState &state, Assets &assets)
 {
     SDL_SetRenderDrawColor(state.renderer, 10, 21, 33, 255);
     SDL_RenderClear(state.renderer);
-
+ 
     drawBoard(state);
-
+    drawPieces(state, assets);
+ 
     SDL_RenderPresent(state.renderer);
 } 
 
