@@ -83,7 +83,17 @@ void Chessboard::move(const Move& move)
             break;
         }
     }
+    // en passant
 
+    // update en passant target square
+
+    // castling
+
+    // update castling rights
+
+    // promotions
+
+    // switch turns
     stateStack[stackIndex].turn = whiteToMove ? BLACK : WHITE;
 }
 
