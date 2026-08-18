@@ -31,7 +31,7 @@ struct boardState
     std::uint64_t bitboards[12];
 
     // boolean variables for castling rights
-    bool kingsideW, kingsideB, queensideW, queensideB;
+    bool wKingside, bKingside, wQueenside, bQueenside;
 
     // bitboard to represent en passant target
     std::uint64_t enpTarget;

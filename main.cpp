@@ -17,6 +17,7 @@ struct SDLState
    int selectedX = -1;
    int selectedY = -1;
    bool hasSelection = false;
+   bool boardFlipped = false;
 };
 
 struct Assets
@@ -35,6 +36,7 @@ void handleMouseClick(SDLState &state, float windowX, float windowY);
 void drawBoard(SDLState &state);
 void drawPieces(SDLState &state, Assets &assets);
 bool isWhitePiece(uint8_t piece);
+void boardToScreen(const SDLState &state, int boardCol, int boardRow, int& screenCol, int& screenRow);
 void render(SDLState &state, Assets &assets);
 void cleanup(SDLState &state);
 
@@ -95,16 +97,17 @@ int main(int argc, char* argv[])
                             break;
                         }
                         case SDLK_BACKSPACE:
-                        {
+                        {   
+                            if (moveIndex > 0)
+                            {
                             game.undo();
                             --moveIndex;
+                            }
                             break;
                         }
                         case SDLK_SPACE:
                         {
-                            state.squareX += 8 * state.squareSize;
-                            state.squareY += 8 * state.squareSize;
-                            state.squareSize *= -1;
+                            state.boardFlipped = !state.boardFlipped;
                             break;
                         }
                     }
@@ -214,13 +217,16 @@ void handleMouseClick(SDLState &state, float windowX, float windowY)
     float mouseY;
     SDL_RenderCoordinatesFromWindow(state.renderer, windowX, windowY, &mouseX, &mouseY);
 
-    int clickedX = floor((mouseX - state.squareX) / state.squareSize);
-    int clickedY = floor((mouseY - state.squareY) / state.squareSize);
+    int screenCol = floor((mouseX - state.squareX) / state.squareSize);
+    int screenRow = floor((mouseY - state.squareY) / state.squareSize);
 
     // only handle clicks if actually on the board
-    if (clickedX < 0 || clickedX > 7 || clickedY < 0 || clickedY > 7)
+    if (screenCol < 0 || screenCol > 7 || screenRow < 0 || screenRow > 7)
         return;
     
+    int clickedX = state.boardFlipped ? 7 - screenCol : screenCol;
+    int clickedY = state.boardFlipped ? 7 - screenRow : screenRow;
+  
     uint8_t clickedSquare = clickedY * 8 + clickedX;
 
     if (!state.hasSelection)
@@ -242,13 +248,11 @@ void handleMouseClick(SDLState &state, float windowX, float windowY)
             state.hasSelection = false;
             return;
         }
-
-        Move m;
-        m.from = fromSquare;
-        m.to = clickedSquare;
-        m.promotion = EMPTY;   // not handled yet
-
-        game.move(m);
+        
+        moveStack[moveIndex].from = fromSquare;
+        moveStack[moveIndex].to = clickedSquare;
+        moveStack[moveIndex].promotion = EMPTY;   // not handled yet
+        game.move(moveStack[moveIndex++]);
 
         state.hasSelection = false;
         state.selectedX = -1;
@@ -274,20 +278,27 @@ void drawBoard(SDLState &state)
             if ((x+y) % 2) SDL_SetRenderDrawColor(state.renderer, 181, 136, 99, 255);
             else SDL_SetRenderDrawColor(state.renderer, 240, 217, 181, 255);
 
+            int screenCol, screenRow;
+            boardToScreen(state, x, y, screenCol, screenRow);
+
             SDL_FRect squareRect;
-            squareRect.x = (state.squareX + state.squareSize * x);
-            squareRect.y = (state.squareY + state.squareSize * y);
+            squareRect.x = (state.squareX + state.squareSize * screenCol);
+            squareRect.y = (state.squareY + state.squareSize * screenRow);
             squareRect.w = state.squareSize;
             squareRect.h = state.squareSize;
             SDL_RenderFillRect(state.renderer, &squareRect);
         }
     // highlight selected squares
-    if (state.selectedX >= 0 && state.selectedY >= 0 && state.selectedX < 8 && state.selectedY < 8)
+    if (state.hasSelection && state.selectedX >= 0 && state.selectedY >= 0 && state.selectedX < 8 && state.selectedY < 8)
     {
         SDL_SetRenderDrawColor(state.renderer, 134, 181, 107, 255);
+
+        int screenCol, screenRow;
+        boardToScreen(state, state.selectedX, state.selectedY, screenCol, screenRow);
+
         SDL_FRect squareRect;
-        squareRect.x = (state.squareX + state.squareSize * state.selectedX);
-        squareRect.y = (state.squareY + state.squareSize * state.selectedY);
+        squareRect.x = (state.squareX + state.squareSize * screenCol);
+        squareRect.y = (state.squareY + state.squareSize * screenRow);
         squareRect.w = state.squareSize;
         squareRect.h = state.squareSize;
         SDL_RenderFillRect(state.renderer, &squareRect);
@@ -305,10 +316,13 @@ void drawPieces(SDLState &state, Assets &assets)
  
         int col = square % 8;
         int row = square / 8;
+
+        int screenCol, screenRow;
+        boardToScreen(state, col, row, screenCol, screenRow);
  
         SDL_FRect destRect;
-        destRect.x = state.squareX + state.squareSize * col;
-        destRect.y = state.squareY + state.squareSize * row;
+        destRect.x = state.squareX + state.squareSize * screenCol;
+        destRect.y = state.squareY + state.squareSize * screenRow;
         destRect.w = state.squareSize;
         destRect.h = state.squareSize;
  
@@ -319,6 +333,20 @@ void drawPieces(SDLState &state, Assets &assets)
 bool isWhitePiece(uint8_t piece)
 {
     return piece < 6;
+}
+
+void boardToScreen(const SDLState &state, int boardCol, int boardRow, int &screenCol, int &screenRow)
+{
+    if (state.boardFlipped)
+    {
+        screenCol = 7 - boardCol;
+        screenRow = 7 - boardRow;
+    }
+    else
+    {
+        screenCol = boardCol;
+        screenRow = boardRow;
+    }
 }
 
 void render(SDLState &state, Assets &assets)

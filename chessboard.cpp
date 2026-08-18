@@ -1,4 +1,5 @@
 #include "chessboard.h"
+#include <cmath>
 
 Chessboard::Chessboard()
 {
@@ -18,10 +19,10 @@ Chessboard::Chessboard()
     stateStack[0].bitboards[bQueen]   = 0x0000000000000008;
     stateStack[0].bitboards[bKing]    = 0x0000000000000010;
 
-    stateStack[0].kingsideW = true;
-    stateStack[0].queensideW = true;
-    stateStack[0].kingsideB = true;
-    stateStack[0].queensideB = true;
+    stateStack[0].wKingside = true;
+    stateStack[0].wQueenside = true;
+    stateStack[0].bKingside = true;
+    stateStack[0].bQueenside = true;
 
     stateStack[0].enpTarget = 0;
 
@@ -61,6 +62,7 @@ void Chessboard::move(const Move& move)
     bool whiteToMove = (stateStack[stackIndex].turn == WHITE);
 
     // move the piece
+    uint8_t movedPiece = EMPTY;
     int start = whiteToMove ? 0 : 6;
     int end   = whiteToMove ? 6 : 12;
     for (int i = start; i < end; ++i)
@@ -68,6 +70,7 @@ void Chessboard::move(const Move& move)
         if (stateStack[stackIndex].bitboards[i] & fromBitboard)
         {
             stateStack[stackIndex].bitboards[i] ^= moveBitboard;
+            movedPiece = i;
             break;
         }
     }
@@ -83,9 +86,30 @@ void Chessboard::move(const Move& move)
             break;
         }
     }
+
     // en passant
+    if (toBitboard == stateStack[stackIndex].enpTarget)
+    {
+        if (movedPiece == wPawn)
+        {
+            stateStack[stackIndex].bitboards[bPawn] ^= stateStack[stackIndex].enpTarget << 8;
+        }
+        else if (movedPiece == bPawn)
+        {
+            stateStack[stackIndex].bitboards[wPawn] ^= stateStack[stackIndex].enpTarget >> 8;
+        }
+    }
 
     // update en passant target square
+    if ((movedPiece == wPawn || movedPiece == bPawn) && abs(move.from - move.to) == 16)
+    {
+        uint8_t skippedSquare = (move.from + move.to) / 2;
+        stateStack[stackIndex].enpTarget = uint64_t(1) << skippedSquare;
+    }
+    else 
+    {
+        stateStack[stackIndex].enpTarget = 0;
+    }
 
     // castling
 
