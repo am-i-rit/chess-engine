@@ -16,6 +16,7 @@ struct SDLState
    float squareSize, squareX, squareY;
    int selectedX = -1;
    int selectedY = -1;
+   bool hasSelection = false;
 };
 
 struct Assets
@@ -23,12 +24,17 @@ struct Assets
     SDL_Texture* pieces[12];
 };
 
+Move moveStack[1000];
+int moveIndex = 0;
+
 bool initialize(SDLState &state);
 std::string getAssetPath(const std::string &relativePath);
 bool loadAssets(SDLState &state, Assets &assets);
 void cleanupAssets(Assets &assets);
+void handleMouseClick(SDLState &state, float windowX, float windowY);
 void drawBoard(SDLState &state);
 void drawPieces(SDLState &state, Assets &assets);
+bool isWhitePiece(uint8_t piece);
 void render(SDLState &state, Assets &assets);
 void cleanup(SDLState &state);
 
@@ -75,17 +81,7 @@ int main(int argc, char* argv[])
                 {
                     if (event.button.button == SDL_BUTTON_LEFT)
                     {
-                        float mouseX;
-                        float mouseY;
-                        SDL_RenderCoordinatesFromWindow(state.renderer, event.button.x, event.button.y, &mouseX, &mouseY);
-                        
-                        state.selectedX = floor((mouseX - state.squareX) / state.squareSize);
-                        state.selectedY = floor((mouseY - state.squareY) / state.squareSize);
-
-                        // test x, y on mouse click
-                        // std::cout << "x: " << mouseX << ", y: " << mouseY << std::endl;
-                        // std::cout << "x: " << state.selectedX << ", y: " << state.selectedY << std::endl;
-
+                        handleMouseClick(state, event.button.x, event.button.y);
                     }
                     break;
                 }
@@ -96,6 +92,19 @@ int main(int argc, char* argv[])
                         case SDLK_ESCAPE:
                         {
                             running = false;
+                            break;
+                        }
+                        case SDLK_BACKSPACE:
+                        {
+                            game.undo();
+                            --moveIndex;
+                            break;
+                        }
+                        case SDLK_SPACE:
+                        {
+                            state.squareX += 8 * state.squareSize;
+                            state.squareY += 8 * state.squareSize;
+                            state.squareSize *= -1;
                             break;
                         }
                     }
@@ -199,6 +208,54 @@ void cleanupAssets(Assets &assets)
     }
 }
 
+void handleMouseClick(SDLState &state, float windowX, float windowY)
+{
+    float mouseX;
+    float mouseY;
+    SDL_RenderCoordinatesFromWindow(state.renderer, windowX, windowY, &mouseX, &mouseY);
+
+    int clickedX = floor((mouseX - state.squareX) / state.squareSize);
+    int clickedY = floor((mouseY - state.squareY) / state.squareSize);
+
+    // only handle clicks if actually on the board
+    if (clickedX < 0 || clickedX > 7 || clickedY < 0 || clickedY > 7)
+        return;
+    
+    uint8_t clickedSquare = clickedY * 8 + clickedX;
+
+    if (!state.hasSelection)
+    {
+        uint8_t piece = game.getPiece(clickedSquare);
+
+        if (piece == EMPTY) return;
+        if (isWhitePiece(piece) != (game.getTurn() == WHITE)) return;
+
+        state.selectedX = clickedX;
+        state.selectedY = clickedY;
+        state.hasSelection = true;
+    }
+    else
+    {
+        uint8_t fromSquare = state.selectedY * 8 + state.selectedX;
+        if (clickedSquare == fromSquare)
+        {
+            state.hasSelection = false;
+            return;
+        }
+
+        Move m;
+        m.from = fromSquare;
+        m.to = clickedSquare;
+        m.promotion = EMPTY;   // not handled yet
+
+        game.move(m);
+
+        state.hasSelection = false;
+        state.selectedX = -1;
+        state.selectedY = -1;
+    }
+}
+
 void drawBoard(SDLState &state)
 {
     SDL_SetRenderDrawColor(state.renderer, 80, 21, 10, 255);
@@ -244,7 +301,7 @@ void drawPieces(SDLState &state, Assets &assets)
     for (int square = 0; square < 64; ++square)
     {
         uint8_t piece = game.getPiece(square);
-        if (piece == Empty) continue;
+        if (piece == EMPTY) continue;
  
         int col = square % 8;
         int row = square / 8;
@@ -257,6 +314,11 @@ void drawPieces(SDLState &state, Assets &assets)
  
         SDL_RenderTexture(state.renderer, assets.pieces[piece], nullptr, &destRect);
     }
+}
+
+bool isWhitePiece(uint8_t piece)
+{
+    return piece < 6;
 }
 
 void render(SDLState &state, Assets &assets)
