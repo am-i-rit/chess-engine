@@ -112,10 +112,45 @@ void Chessboard::move(const Move& move)
     }
 
     // castling
+    if (movedPiece == wKing)
+	{
+		if (moveBitboard == 0x5000000000000000) 
+        {
+            stateStack[stackIndex].bitboards[wRook] ^= 0xa000000000000000;
+        }
+		else if (moveBitboard == 0x1400000000000000) 
+        {
+            stateStack[stackIndex].bitboards[wRook] ^= 0x0900000000000000;
+        }
+	}
+	else if (movedPiece == bKing)
+	{
+		if (moveBitboard == 0x0000000000000050) 
+        {
+            stateStack[stackIndex].bitboards[bRook] ^= 0x00000000000000a0;
+        }
+		else if (moveBitboard == 0x0000000000000014) 
+        {
+            stateStack[stackIndex].bitboards[bRook] ^= 0x0000000000000009;
+        }
+	}
 
     // update castling rights
+    if (moveBitboard & 0x9000000000000000) stateStack[stackIndex].wKingside = false;
+	if (moveBitboard & 0x1100000000000000) stateStack[stackIndex].wQueenside = false;
+	if (moveBitboard & 0x0000000000000090) stateStack[stackIndex].bKingside = false;
+	if (moveBitboard & 0x0000000000000011) stateStack[stackIndex].bQueenside = false;
 
     // promotions
+    if (move.promotion != EMPTY)
+    {
+        uint8_t pawnType;
+        if (stateStack[stackIndex].turn == WHITE) pawnType = wPawn;
+        else pawnType = bPawn;
+
+        stateStack[stackIndex].bitboards[pawnType] ^= toBitboard;
+        stateStack[stackIndex].bitboards[move.promotion] ^= toBitboard;
+    }
 
     // switch turns
     stateStack[stackIndex].turn = whiteToMove ? BLACK : WHITE;

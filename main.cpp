@@ -18,6 +18,8 @@ struct SDLState
    int selectedY = -1;
    bool hasSelection = false;
    bool boardFlipped = false;
+   int promoteX = -1;
+   int promoteY = -1;
 };
 
 struct Assets
@@ -33,7 +35,7 @@ std::string getAssetPath(const std::string &relativePath);
 bool loadAssets(SDLState &state, Assets &assets);
 void cleanupAssets(Assets &assets);
 void handleMouseClick(SDLState &state, float windowX, float windowY);
-void drawBoard(SDLState &state);
+void draw(SDLState &state, Assets &assets);
 void drawPieces(SDLState &state, Assets &assets);
 bool isWhitePiece(uint8_t piece);
 void boardToScreen(const SDLState &state, int boardCol, int boardRow, int& screenCol, int& screenRow);
@@ -227,8 +229,51 @@ void handleMouseClick(SDLState &state, float windowX, float windowY)
     int clickedX = state.boardFlipped ? 7 - screenCol : screenCol;
     int clickedY = state.boardFlipped ? 7 - screenRow : screenRow;
   
-    uint8_t clickedSquare = clickedY * 8 + clickedX;
+    // promote a piece if needed
+    if (state.promoteY == 0)
+    {
+        if (clickedX == state.promoteX)
+        {
+            uint8_t promotion = EMPTY;
+            if (clickedY == 0) promotion = wQueen;
+            else if (clickedY == 1) promotion = wKnight;
+            else if (clickedY == 2) promotion = wRook;
+            else if (clickedY == 3) promotion = wBishop;
 
+            if (promotion != EMPTY)
+            {
+                moveStack[moveIndex - 1].promotion = promotion;
+                game.undo();
+                game.move(moveStack[moveIndex - 1]);
+
+                state.promoteX = -1;
+                state.promoteY = -1;
+            }
+        }
+    }
+    else if (state.promoteY == 7)
+    {
+        if (clickedX == state.promoteX)
+        {
+            uint8_t promotion = EMPTY;
+            if (clickedY == 7) promotion = bQueen;
+            else if (clickedY == 6) promotion = bKnight;
+            else if (clickedY == 5) promotion = bRook;
+            else if (clickedY == 4) promotion = bBishop;
+
+            if (promotion != EMPTY)
+            {
+                moveStack[moveIndex - 1].promotion = promotion;
+                game.undo();
+                game.move(moveStack[moveIndex - 1]);
+
+                state.promoteX = -1;
+                state.promoteY = -1;
+            }
+        }
+    }
+
+    uint8_t clickedSquare = clickedY * 8 + clickedX;
     if (!state.hasSelection)
     {
         uint8_t piece = game.getPiece(clickedSquare);
@@ -254,13 +299,25 @@ void handleMouseClick(SDLState &state, float windowX, float windowY)
         moveStack[moveIndex].promotion = EMPTY;   // not handled yet
         game.move(moveStack[moveIndex++]);
 
+        // check for potential promotion
+        if ((clickedY == 0 && game.getPiece(clickedSquare) == wPawn) || (clickedY == 7 && game.getPiece(clickedSquare) == bPawn))
+        {
+            state.promoteX = clickedX;
+            state.promoteY = clickedY;
+        }
+        else
+        {
+            state.promoteX = -1;
+            state.promoteY = -1;
+        }
+
         state.hasSelection = false;
         state.selectedX = -1;
         state.selectedY = -1;
     }
 }
 
-void drawBoard(SDLState &state)
+void draw(SDLState &state, Assets &assets)
 {
     SDL_SetRenderDrawColor(state.renderer, 80, 21, 10, 255);
     SDL_FRect boardRect;
@@ -271,7 +328,7 @@ void drawBoard(SDLState &state)
 
     SDL_RenderFillRect(state.renderer, &boardRect);
 
-    // draw the board
+    // draw the square pattern for the board
     for (int x = 0; x < 8; ++x)
         for (int y = 0; y < 8; ++y)
         {
@@ -288,7 +345,8 @@ void drawBoard(SDLState &state)
             squareRect.h = state.squareSize;
             SDL_RenderFillRect(state.renderer, &squareRect);
         }
-    // highlight selected squares
+
+    // highlight selected squares (if any)
     if (state.hasSelection && state.selectedX >= 0 && state.selectedY >= 0 && state.selectedX < 8 && state.selectedY < 8)
     {
         SDL_SetRenderDrawColor(state.renderer, 134, 181, 107, 255);
@@ -303,32 +361,86 @@ void drawBoard(SDLState &state)
         squareRect.h = state.squareSize;
         SDL_RenderFillRect(state.renderer, &squareRect);
     }
-}
 
-// loops over every square, asks the Chessboard what's there,
-// and draws the matching texture if the square isn't empty
-void drawPieces(SDLState &state, Assets &assets)
-{
+    // draw pieces
     for (int square = 0; square < 64; ++square)
     {
         uint8_t piece = game.getPiece(square);
         if (piece == EMPTY) continue;
- 
+
         int col = square % 8;
         int row = square / 8;
 
         int screenCol, screenRow;
         boardToScreen(state, col, row, screenCol, screenRow);
- 
+
         SDL_FRect destRect;
         destRect.x = state.squareX + state.squareSize * screenCol;
         destRect.y = state.squareY + state.squareSize * screenRow;
         destRect.w = state.squareSize;
         destRect.h = state.squareSize;
- 
+
         SDL_RenderTexture(state.renderer, assets.pieces[piece], nullptr, &destRect);
     }
+
+    // draw ui for pawn promotions
+    if (state.promoteY == 0)
+    {
+        int screenCol, screenRow;
+        boardToScreen(state, state.promoteX, 0, screenCol, screenRow);
+        int screenDir;
+        if (screenRow == 0) screenDir = 1;
+        else screenDir = -1;
+
+        SDL_FRect bg;
+        bg.x = state.squareX + state.squareSize * screenCol;
+        bg.y = state.squareY + state.squareSize * (screenDir == 1 ? screenRow : screenRow - 3);
+        bg.w = state.squareSize;
+        bg.h = state.squareSize * 4.0f;
+        SDL_SetRenderDrawColor(state.renderer, 160, 220, 255, 255);
+        SDL_RenderFillRect(state.renderer, &bg);
+
+        uint8_t options[4] = { wQueen, wKnight, wRook, wBishop };
+        for (int i = 0; i < 4; ++i)
+        {
+            SDL_FRect dest;
+            dest.x = state.squareX + state.squareSize * screenCol;
+            dest.y = state.squareY + state.squareSize * (screenRow + screenDir * i);
+            dest.w = state.squareSize;
+            dest.h = state.squareSize;
+            SDL_RenderTexture(state.renderer, assets.pieces[options[i]], nullptr, &dest);
+        }
+    }
+    if (state.promoteY == 7)
+    {
+        int screenCol, screenRow;
+        boardToScreen(state, state.promoteX, 7, screenCol, screenRow);
+        int screenDir;
+        if (screenRow == 0) screenDir = 1;
+        else screenDir = -1;
+
+        SDL_FRect bg;
+        bg.x = state.squareX + state.squareSize * screenCol;
+        bg.y = state.squareY + state.squareSize * (screenDir == 1 ? screenRow : screenRow - 3);
+        bg.w = state.squareSize;
+        bg.h = state.squareSize * 4.0f;
+        SDL_SetRenderDrawColor(state.renderer, 160, 45, 255, 255);
+        SDL_RenderFillRect(state.renderer, &bg);
+
+        uint8_t options[4] = { bQueen, bKnight, bRook, bBishop };
+        for (int i = 0; i < 4; ++i)
+        {
+            SDL_FRect dest;
+            dest.x = state.squareX + state.squareSize * screenCol;
+            dest.y = state.squareY + state.squareSize * (screenRow + screenDir * i);
+            dest.w = state.squareSize;
+            dest.h = state.squareSize;
+            SDL_RenderTexture(state.renderer, assets.pieces[options[i]], nullptr, &dest);
+        }
+    }
+
 }
+
 
 bool isWhitePiece(uint8_t piece)
 {
@@ -354,8 +466,7 @@ void render(SDLState &state, Assets &assets)
     SDL_SetRenderDrawColor(state.renderer, 10, 21, 33, 255);
     SDL_RenderClear(state.renderer);
  
-    drawBoard(state);
-    drawPieces(state, assets);
+    draw(state, assets);
  
     SDL_RenderPresent(state.renderer);
 } 
