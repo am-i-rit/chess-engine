@@ -259,6 +259,39 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
 			moves[numMoves++] = { origin, square, EMPTY };
 		}
 
+        // white pawn attacks
+        bb = ((stateStack[stackIndex].bitboards[wPawn] & ~FILE_A) >> 9) & (blackPieces | stateStack[stackIndex].enpTarget);
+        while (bb)
+        {
+            square = lsbIndex(bb);
+            bb &= bb - 1;
+            uint8_t origin = square + 9;
+            if (square < 8)
+            {
+                moves[numMoves++] = { origin, square, wQueen };
+                moves[numMoves++] = { origin, square, wRook };
+                moves[numMoves++] = { origin, square, wBishop };
+                moves[numMoves++] = { origin, square, wKnight };
+            }
+            else moves[numMoves++] = { origin, square, EMPTY };
+        }
+
+        bb = ((stateStack[stackIndex].bitboards[wPawn] & ~FILE_H) >> 7) & (blackPieces | stateStack[stackIndex].enpTarget);
+        while (bb)
+        {
+            square = lsbIndex(bb);
+            bb &= bb - 1;
+            uint8_t origin = square + 7;
+            if (square < 8)
+            {
+                moves[numMoves++] = { origin, square, wQueen };
+                moves[numMoves++] = { origin, square, wRook };
+                moves[numMoves++] = { origin, square, wBishop };
+                moves[numMoves++] = { origin, square, wKnight };
+            }
+            else moves[numMoves++] = { origin, square, EMPTY };
+        }
+
         // knight moves
 		bb = stateStack[stackIndex].bitboards[wKnight];
 		while (bb)
@@ -276,7 +309,6 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
 			}
 		}
 
-
         // king moves
 		square = lsbIndex(stateStack[stackIndex].bitboards[wKing]);
 		bb = kingAttacks[square] & ~whitePieces;
@@ -293,7 +325,7 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
     }
 
     else
- // generate pseudo moves for black
+    // generate pseudo moves for black
     {
         // pawn moves
         uint64_t bb = (stateStack[stackIndex].bitboards[bPawn] << 8) & ~occupied;
@@ -322,6 +354,39 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
 			uint8_t origin = square - 16;
 			moves[numMoves++] = { origin, square, EMPTY };
 		}
+
+        // black pawn attacks
+        bb = ((stateStack[stackIndex].bitboards[bPawn] & ~FILE_A) << 7) & (whitePieces | stateStack[stackIndex].enpTarget);
+        while (bb)
+        {
+            square = lsbIndex(bb);
+            bb &= bb - 1;
+            uint8_t origin = square - 7;
+            if (square >= 56)
+            {
+                moves[numMoves++] = { origin, square, bQueen };
+                moves[numMoves++] = { origin, square, bRook };
+                moves[numMoves++] = { origin, square, bBishop };
+                moves[numMoves++] = { origin, square, bKnight };
+            }
+            else moves[numMoves++] = { origin, square, EMPTY };
+        }
+
+        bb = ((stateStack[stackIndex].bitboards[bPawn] & ~FILE_H) << 9) & (whitePieces | stateStack[stackIndex].enpTarget);
+        while (bb)
+        {
+            square = lsbIndex(bb);
+            bb &= bb - 1;
+            uint8_t origin = square - 9;
+            if (square >= 56)
+            {
+                moves[numMoves++] = { origin, square, bQueen };
+                moves[numMoves++] = { origin, square, bRook };
+                moves[numMoves++] = { origin, square, bBishop };
+                moves[numMoves++] = { origin, square, bKnight };
+            }
+            else moves[numMoves++] = { origin, square, EMPTY };
+        }
 
         // knight moves
 		bb = stateStack[stackIndex].bitboards[bKnight];
@@ -359,7 +424,7 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
 
 bool Chessboard::isLegal(const Move& move)
 {
-    Move moves[218];
+    Move moves[218]; // 218 is the theoretical max number of legal moves in a position
     int numMoves;
     pseudoMoves(moves, numMoves);
 
