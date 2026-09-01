@@ -1,4 +1,5 @@
 #include "chessboard.h"
+#include "helper.h"
 #include <cmath>
 
 Chessboard::Chessboard()
@@ -27,6 +28,51 @@ Chessboard::Chessboard()
     stateStack[0].enpTarget = 0;
 
     stateStack[0].turn = WHITE;
+
+    // generate various bitboards for piece attacks
+    for (int x = 0; x < 8; ++x)
+        for (int y = 0; y < 8; ++y)
+        {
+            uint8_t squareIndex = x + 8 * y;
+
+            // king
+            kingAttacks[squareIndex] = 0;
+
+            int kdx[8] = { -1, -1, -1,  0, 0,  1, 1, 1 };
+            int kdy[8] = { -1,  0,  1, -1, 1, -1, 0, 1 };
+
+            for (int dir = 0; dir < 8; ++dir)
+            {
+                int nx = x + kdx[dir];
+                int ny = y + kdy[dir];
+
+                if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8)
+                {
+                    uint8_t targetSquare = nx + 8 * ny;
+                    kingAttacks[squareIndex] |= (uint64_t(1) << targetSquare);
+                }
+            }
+
+            // knight
+            knightAttacks[squareIndex] = 0;
+
+            int ndx[8] = {1, -1, 1, -1, 2, -2, 2, -2};
+            int ndy[8] = {2, 2, -2, -2, 1, 1, -1, -1};
+
+            for (int dir = 0; dir < 8; ++dir)
+            {
+                int nx = x + ndx[dir];
+                int ny = y + ndy[dir];
+
+                if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8)
+                {
+                    uint8_t targetSquare = nx + 8 * ny;
+                    kingAttacks[squareIndex] |= (uint64_t(1) << targetSquare);
+                }
+            }
+
+
+        }
 }
 
 uint8_t Chessboard::getPiece(uint8_t square)
@@ -165,6 +211,180 @@ Colour Chessboard::getTurn()
 {
     return stateStack[stackIndex].turn;
 }
+
+void Chessboard::pseudoMoves(Move* moves, int& numMoves)
+{
+    numMoves = 0;
+
+    // create various bitboards to help with generation
+    uint64_t whitePieces = 0;
+    uint64_t blackPieces = 0;
+
+    for (int i = 0; i < 6; ++i)
+        whitePieces |= stateStack[stackIndex].bitboards[i];
+    
+    for (int i = 6; i < 12; ++i)
+        blackPieces |= stateStack[stackIndex].bitboards[i];
+    
+    uint64_t occupied = whitePieces | blackPieces;
+
+    if (getTurn() == WHITE)
+    // generate pseudo moves for white
+    {
+        // pawn moves
+        uint64_t bb = (stateStack[stackIndex].bitboards[wPawn] >> 8) & ~occupied;
+        uint64_t doublePush = ((bb & RANK_3) >> 8) & ~occupied;
+        uint8_t square;
+
+        while (bb)
+        {
+            square = lsbIndex(bb);
+			bb &= bb - 1;
+			uint8_t origin = square + 8;
+			if (square < 8)
+			{
+				moves[numMoves++] = { origin, square, wQueen};
+				moves[numMoves++] = { origin, square, wRook };
+				moves[numMoves++] = { origin, square, wBishop};
+				moves[numMoves++] = { origin, square, wKnight};
+            }
+			else moves[numMoves++] = { origin, square, EMPTY };
+            
+        }
+        while (doublePush)
+		{
+			square = lsbIndex(doublePush);
+			doublePush &= doublePush - 1;
+			uint8_t origin = square + 16;
+			moves[numMoves++] = { origin, square, EMPTY };
+		}
+
+        // knight moves
+		bb = stateStack[stackIndex].bitboards[wKnight];
+		while (bb)
+		{
+			square = lsbIndex(bb);
+			bb &= bb - 1;
+
+			uint64_t knightMoves = knightAttacks[square] & ~whitePieces;
+			uint8_t target;
+			while (knightMoves)
+			{
+				target = lsbIndex(knightMoves);
+				knightMoves &= knightMoves - 1;
+				moves[numMoves++] = { square, target, EMPTY };
+			}
+		}
+
+
+        // king moves
+		square = lsbIndex(stateStack[stackIndex].bitboards[wKing]);
+		bb = kingAttacks[square] & ~whitePieces;
+		while (bb)
+		{
+			uint8_t target = lsbIndex(bb);
+			bb &= bb - 1;
+			moves[numMoves++] = { square, target, EMPTY };
+        }
+        
+        // castling
+        
+
+    }
+
+    else
+ // generate pseudo moves for black
+    {
+        // pawn moves
+        uint64_t bb = (stateStack[stackIndex].bitboards[bPawn] << 8) & ~occupied;
+        uint64_t doublePush = ((bb & RANK_6) << 8) & ~occupied;
+        uint8_t square;
+
+        while (bb)
+        {
+            square = lsbIndex(bb);
+			bb &= bb - 1;
+			uint8_t origin = square - 8;
+			if (square > 55)
+			{
+				moves[numMoves++] = { origin, square, bQueen};
+				moves[numMoves++] = { origin, square, bRook };
+				moves[numMoves++] = { origin, square, bBishop};
+				moves[numMoves++] = { origin, square, bKnight};
+            }
+			else moves[numMoves++] = { origin, square, EMPTY };
+            
+        }
+        while (doublePush)
+		{
+			square = lsbIndex(doublePush);
+			doublePush &= doublePush - 1;
+			uint8_t origin = square - 16;
+			moves[numMoves++] = { origin, square, EMPTY };
+		}
+
+        // knight moves
+		bb = stateStack[stackIndex].bitboards[bKnight];
+		while (bb)
+		{
+			square = lsbIndex(bb);
+			bb &= bb - 1;
+
+			uint64_t knightMoves = knightAttacks[square] & ~blackPieces;
+			uint8_t target;
+			while (knightMoves)
+			{
+				target = lsbIndex(knightMoves);
+				knightMoves &= knightMoves - 1;
+				moves[numMoves++] = { square, target, EMPTY };
+			}
+		}
+
+
+        // king moves
+		square = lsbIndex(stateStack[stackIndex].bitboards[bKing]);
+		bb = kingAttacks[square] & ~blackPieces;
+		while (bb)
+		{
+			uint8_t target = lsbIndex(bb);
+			bb &= bb - 1;
+			moves[numMoves++] = { square, target, EMPTY };
+        }
+        
+        // castling
+        
+
+    }
+}
+
+bool Chessboard::isLegal(const Move& move)
+{
+    Move moves[218];
+    int numMoves;
+    pseudoMoves(moves, numMoves);
+
+    for (int i = 0; i < numMoves; ++i)
+        if (move == moves[i])
+            return true;
+    
+    return false;
+}
+
+bool Chessboard::isAttacked(uint8_t square, uint8_t colour)
+{
+
+}
+
+uint8_t Chessboard::wKingSquare()
+{
+    return lsbIndex(stateStack[stackIndex].bitboards[wKing]);
+}
+
+uint8_t Chessboard::bKingSquare()
+{
+    return lsbIndex(stateStack[stackIndex].bitboards[bKing]);
+}
+
 
 Chessboard::~Chessboard()
 {
