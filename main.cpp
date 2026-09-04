@@ -250,6 +250,7 @@ void handleMouseClick(SDLState &state, float windowX, float windowY)
                 state.promoteY = -1;
             }
         }
+        return;
     }
     else if (state.promoteY == 7)
     {
@@ -271,6 +272,8 @@ void handleMouseClick(SDLState &state, float windowX, float windowY)
                 state.promoteY = -1;
             }
         }
+
+        return;
     }
 
     uint8_t clickedSquare = clickedY * 8 + clickedX;
@@ -294,9 +297,34 @@ void handleMouseClick(SDLState &state, float windowX, float windowY)
             return;
         }
         
-        moveStack[moveIndex].from = fromSquare;
-        moveStack[moveIndex].to = clickedSquare;
-        moveStack[moveIndex].promotion = EMPTY;   // not handled yet
+        Move attemptedMove = {fromSquare, clickedSquare, EMPTY};
+
+        uint8_t movedPiece = game.getPiece(fromSquare);
+
+        bool isPromotion =
+            (movedPiece == wPawn && clickedY == 0) ||
+            (movedPiece == bPawn && clickedY == 7);
+
+        // use a queen to test if promotion is legal
+        Move legalityCheck = attemptedMove;
+
+        if (isPromotion)
+        {
+            if (movedPiece == wPawn)
+                legalityCheck.promotion = wQueen;
+            else
+                legalityCheck.promotion = bQueen;
+        }
+
+        if (!game.isLegal(legalityCheck))
+        {
+            state.hasSelection = false;
+            state.selectedX = -1;
+            state.selectedY = -1;
+            return;
+        }
+
+        moveStack[moveIndex] = attemptedMove;
         game.move(moveStack[moveIndex++]);
 
         // check for potential promotion

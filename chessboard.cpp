@@ -29,6 +29,9 @@ Chessboard::Chessboard()
 
     stateStack[0].turn = WHITE;
 
+    stateStack[0].numHalfMoves = 0;
+    stateStack[0].zobristHash = 0;
+
     // generate various bitboards for piece attacks
     for (int x = 0; x < 8; ++x)
         for (int y = 0; y < 8; ++y)
@@ -67,7 +70,7 @@ Chessboard::Chessboard()
                 if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8)
                 {
                     uint8_t targetSquare = nx + 8 * ny;
-                    kingAttacks[squareIndex] |= (uint64_t(1) << targetSquare);
+                    knightAttacks[squareIndex] |= (uint64_t(1) << targetSquare);
                 }
             }
 
@@ -364,7 +367,22 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
         }
         
         // castling
-        // write code gangy
+		if (stateStack[stackIndex].wKingside 
+            && !(occupied & 0x6000000000000000) 
+            && !isAttacked(60, BLACK) 
+            && !isAttacked(61, BLACK) 
+            && !isAttacked(62, BLACK))
+        {
+            moves[numMoves++] = { 60, 62, EMPTY };
+        }
+		if (stateStack[stackIndex].wQueenside 
+            && !(occupied & 0x0e00000000000000) 
+            && !isAttacked(58, BLACK) 
+            && !isAttacked(59, BLACK) 
+            && !isAttacked(60, BLACK))
+        {
+            moves[numMoves++] = { 60, 58, EMPTY };
+        }
 
         // diagonal moves (bishop and queen)
         bb = stateStack[stackIndex].bitboards[wBishop] | stateStack[stackIndex].bitboards[wQueen];
@@ -383,8 +401,10 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
                 if (blockers)
                 {
                     u_int8_t blockerSquare;
-                    if (dir == 0 or dir == 1) blockerSquare = lsbIndex(blockers);
-                    else blockerSquare = msbIndex(blockers);
+                    if (dir == 0 or dir == 1) 
+                        blockerSquare = lsbIndex(blockers);
+                    else 
+                        blockerSquare = msbIndex(blockers);
 
                     ray &= ~diagonalRays[blockerSquare][dir];
                 }
@@ -420,7 +440,7 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
                 if (blockers)
                 {
                     u_int8_t blockerSquare;
-                    if (dir == 0 or dir == 1) blockerSquare = lsbIndex(blockers);
+                    if (dir == 1 or dir == 2) blockerSquare = lsbIndex(blockers);
                     else blockerSquare = msbIndex(blockers);
 
                     ray &= ~orthogonalRays[blockerSquare][dir];
@@ -535,15 +555,112 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
 			moves[numMoves++] = { square, target, EMPTY };
         }
         
-        // castling
-        
+         // castling
+		if (stateStack[stackIndex].bKingside 
+            && !(occupied & 0x0000000000000060) 
+            && !isAttacked(4, WHITE) 
+            && !isAttacked(6, WHITE) 
+            && !isAttacked(5, WHITE))
+        {
+            moves[numMoves++] = { 4, 6, EMPTY };
+        }
+		if (stateStack[stackIndex].bQueenside 
+            && !(occupied & 0x000000000000000e) 
+            && !isAttacked(2, WHITE) 
+            && !isAttacked(3, WHITE) 
+            && !isAttacked(4, WHITE))
+        {
+            moves[numMoves++] = { 4, 2, EMPTY };
+        }
 
-    }
+        // diagonal moves (bishop and queen)
+        bb = stateStack[stackIndex].bitboards[bBishop] | stateStack[stackIndex].bitboards[bQueen];
+
+        while (bb)
+        {
+            square = lsbIndex(bb);
+            bb &= bb - 1;
+
+            uint64_t diagonalMoves = 0;
+
+            for (int dir = 0; dir < 4; ++dir)
+            {
+                uint64_t ray = diagonalRays[square][dir];
+                uint64_t blockers = ray & occupied;
+
+                if (blockers)
+                {
+                    uint8_t blockerSquare;
+
+                    if (dir == 0 || dir == 1)
+                        blockerSquare = lsbIndex(blockers);
+                    else
+                        blockerSquare = msbIndex(blockers);
+
+                    ray &= ~diagonalRays[blockerSquare][dir];
+                }
+
+                diagonalMoves |= ray;
+            }
+
+            diagonalMoves &= ~blackPieces;
+
+            while (diagonalMoves)
+            {
+                uint8_t target = lsbIndex(diagonalMoves);
+                diagonalMoves &= diagonalMoves - 1;
+
+                moves[numMoves++] = {square, target, EMPTY};
+            }
+        }
+
+        // orthogonal moves (rook and queen)
+        bb = stateStack[stackIndex].bitboards[bRook] | stateStack[stackIndex].bitboards[bQueen];
+
+        while (bb)
+        {
+            square = lsbIndex(bb);
+            bb &= bb - 1;
+
+            uint64_t orthogonalMoves = 0;
+
+            for (int dir = 0; dir < 4; ++dir)
+            {
+                uint64_t ray = orthogonalRays[square][dir];
+                uint64_t blockers = ray & occupied;
+
+                if (blockers)
+                {
+                    uint8_t blockerSquare;
+
+                    if (dir == 1 || dir == 2)
+                        blockerSquare = lsbIndex(blockers);
+                    else
+                        blockerSquare = msbIndex(blockers);
+
+                    ray &= ~orthogonalRays[blockerSquare][dir];
+                }
+
+                orthogonalMoves |= ray;
+            }
+
+            orthogonalMoves &= ~blackPieces;
+
+            while (orthogonalMoves)
+            {
+                uint8_t target = lsbIndex(orthogonalMoves);
+                orthogonalMoves &= orthogonalMoves - 1;
+
+                moves[numMoves++] = {square, target, EMPTY};
+            }
+        }
+
+            }
 }
 
 bool Chessboard::isLegal(const Move& move)
 {
-    if (isDrawn()) return false;
+    // if (isDrawn()) return false;
 
     Move moves[218]; // 218 is the theoretical max number of legal moves in a position
     int numMoves;
@@ -586,7 +703,7 @@ bool Chessboard::isAttacked(uint8_t square, uint8_t colour)
     {
         // create a new bitboard with all pieces
         uint64_t board = 0;
-        for (int i = 0; i > 12; ++i)
+        for (int i = 0; i < 12; ++i)
         {
             board |= stateStack[stackIndex].bitboards[i];
         }
@@ -608,7 +725,7 @@ bool Chessboard::isAttacked(uint8_t square, uint8_t colour)
 			if (blockers & attackers)
 			{
 				uint8_t blockerIndex;
-				if (i == 0 || i == 3) blockerIndex = lsbIndex(blockers);
+				if (i == 0 || i == 1) blockerIndex = lsbIndex(blockers);
 				else blockerIndex = msbIndex(blockers);
 				if (attackers & (uint64_t(1) << blockerIndex)) return true;
 			}
@@ -622,7 +739,7 @@ bool Chessboard::isAttacked(uint8_t square, uint8_t colour)
 			if (blockers & attackers)
 			{
 				uint8_t blockerIndex;
-				if (i == 0 || i == 2) blockerIndex = lsbIndex(blockers);
+				if (i == 1 || i == 2) blockerIndex = lsbIndex(blockers);
 				else blockerIndex = msbIndex(blockers);
 				if (attackers & (uint64_t(1) << blockerIndex)) return true;
 			}
@@ -632,7 +749,7 @@ bool Chessboard::isAttacked(uint8_t square, uint8_t colour)
     {
         // create a new bitboard with all pieces
         uint64_t board = 0;
-        for (int i = 0; i > 12; ++i)
+        for (int i = 0; i < 12; ++i)
         {
             board |= stateStack[stackIndex].bitboards[i];
         }
@@ -654,7 +771,7 @@ bool Chessboard::isAttacked(uint8_t square, uint8_t colour)
 			if (blockers & attackers)
 			{
 				uint8_t blockerIndex;
-				if (i == 0 || i == 3) blockerIndex = lsbIndex(blockers);
+				if (i == 0 || i == 1) blockerIndex = lsbIndex(blockers);
 				else blockerIndex = msbIndex(blockers);
 				if (attackers & (uint64_t(1) << blockerIndex)) return true;
 			}
@@ -668,7 +785,7 @@ bool Chessboard::isAttacked(uint8_t square, uint8_t colour)
 			if (blockers & attackers)
 			{
 				uint8_t blockerIndex;
-				if (i == 0 || i == 2) blockerIndex = lsbIndex(blockers);
+				if (i == 1 || i == 2) blockerIndex = lsbIndex(blockers);
 				else blockerIndex = msbIndex(blockers);
 				if (attackers & (uint64_t(1) << blockerIndex)) return true;
 			}
