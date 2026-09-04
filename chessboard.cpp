@@ -755,7 +755,7 @@ bool Chessboard::isAttacked(uint8_t square, uint8_t colour)
         }
 
         // check if attacked by a pawn
-        if ((((stateStack[stackIndex].bitboards[bPawn] & ~FILE_A) >> 9) | ((stateStack[stackIndex].bitboards[bPawn] & ~FILE_H) >> 7)) & (uint64_t(1) << square)) return true;
+        if ((((stateStack[stackIndex].bitboards[bPawn] & ~FILE_A) << 7) | ((stateStack[stackIndex].bitboards[bPawn] & ~FILE_H) << 9)) & (uint64_t(1) << square)) return true;
 
         // check if attacked by knight
         if (knightAttacks[square] & stateStack[stackIndex].bitboards[bKnight]) return true;

@@ -4,6 +4,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
 #include "chessboard.h"
+#include "perft.h"
 
 Chessboard game; 
 
@@ -44,6 +45,19 @@ void cleanup(SDLState &state);
 
 int main(int argc, char* argv[])
 {
+    // perft and perft divide
+    /*
+    for (int depth = 1; depth <= 6; ++depth)
+    {
+        std::cout << "Depth " << depth
+                << ": " << perft(game, depth)
+                << '\n';
+    }
+  
+    perftDivide(game, 1);
+    return 0;
+    */
+
     SDLState state;
     Assets assets;
     state.width = 800;

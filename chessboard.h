@@ -21,13 +21,10 @@ static uint64_t FILE_B = 0x0202020202020202ULL;
 static uint64_t FILE_G = 0x4040404040404040ULL;
 static uint64_t FILE_H = 0x8080808080808080ULL;
 
-// rank masks
-static uint64_t RANK_1 = 0xFF00000000000000ULL;
-static uint64_t RANK_2 = 0x00FF000000000000ULL;
+// rank masks for double pawn pushes
 static uint64_t RANK_3 = 0x0000FF0000000000ULL;
 static uint64_t RANK_6 = 0x0000000000FF0000ULL;
-static uint64_t RANK_7 = 0x000000000000FF00ULL;
-static uint64_t RANK_8 = 0x00000000000000FFULL;
+
 
 struct Move
 {
