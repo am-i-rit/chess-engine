@@ -12,7 +12,7 @@ enum Colour: uint8_t
 {
     // using 13 and 14 because 0 through 12 are taken
     // by piece bitboards and idk if any overlap will occur
-    WHITE = 13, BLACK
+    WHITE = 13, BLACK, DRAWN
 };
 
 // file masks
@@ -20,11 +20,6 @@ static uint64_t FILE_A = 0x0101010101010101ULL;
 static uint64_t FILE_B = 0x0202020202020202ULL;
 static uint64_t FILE_G = 0x4040404040404040ULL;
 static uint64_t FILE_H = 0x8080808080808080ULL;
-
-static uint64_t NOT_FILE_A = ~FILE_A;
-static uint64_t NOT_FILE_H = ~FILE_H;
-static uint64_t NOT_FILE_AB = ~(FILE_A | FILE_B); 
-static uint64_t NOT_FILE_GH = ~(FILE_G | FILE_H); 
 
 // rank masks
 static uint64_t RANK_1 = 0xFF00000000000000ULL;
@@ -55,15 +50,20 @@ struct boardState
     // create a bitboard for each piece type for each colour
     std::uint64_t bitboards[12];
 
-    // castling rights variables
+    // variables for whether castling rights exist
     bool wKingside, bKingside, wQueenside, bQueenside;
 
-    // bitboard to represent en passant target
+    // bitboard to represent en passant target square
     std::uint64_t enpTarget;
 
     // tracks turn
     Colour turn;
- 
+
+    // tracks number of half moves (for 50 move rule)
+    std::uint8_t numHalfMoves;
+
+    // hash (helps w threefold repitition)
+    std::uint64_t zobristHash;
 };
 
 class Chessboard
@@ -76,7 +76,8 @@ class Chessboard
     // attack bitboards
     uint64_t kingAttacks[64];
     uint64_t knightAttacks[64];
-
+    uint64_t diagonalRays[64][4];
+    uint64_t orthogonalRays[64][4];
 
 
  public:
@@ -95,6 +96,10 @@ class Chessboard
     bool isAttacked(uint8_t square, uint8_t colour);
     uint8_t wKingSquare();
     uint8_t bKingSquare();
+
+    // check for game ending
+    std::uint8_t gameEnded();
+    bool isDrawn();
 
     // constructor
     Chessboard(); 

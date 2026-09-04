@@ -71,6 +71,50 @@ Chessboard::Chessboard()
                 }
             }
 
+            // diagonal rays
+            int diagonaldx[4] = {-1, 1, -1, 1};
+            int diagonaldy[4] = {1, 1, -1, -1};
+
+            for (int dir = 0; dir < 4; ++dir)
+            {
+                diagonalRays[squareIndex][dir] = 0;
+
+                int nx = x;
+                int ny = y;
+
+                while (true)
+                {
+                    nx += diagonaldx[dir];
+                    ny += diagonaldy[dir];
+
+                    if (nx < 0 || nx > 7 || ny < 0 || ny > 7) break;
+
+                    diagonalRays[squareIndex][dir] |= uint64_t(1) << (nx + 8 * ny);
+                }             
+            }
+
+            // orthogonal rays
+            int orthodx[4] = {-1, 1, 0, 0};
+            int orthody[4] = {0, 0, 1, -1};
+
+            for (int dir = 0; dir < 4; ++dir)
+            {
+                orthogonalRays[squareIndex][dir] = 0;
+
+                int nx = x;
+                int ny = y;
+
+                while (true)
+                {
+                    nx += orthodx[dir];
+                    ny += orthody[dir];
+
+                    if (nx < 0 || nx > 7 || ny < 0 || ny > 7) break;
+
+                    orthogonalRays[squareIndex][dir] |= uint64_t(1) << (nx + 8 * ny);
+                }             
+            }
+
 
         }
 }
@@ -87,7 +131,7 @@ void Chessboard::setPiece(uint8_t piece, uint8_t square)
 {
     uint64_t mask = uint64_t(1) << square;
 
-    uint8_t current = getPiece(square);   // now a scan instead of an array read
+    uint8_t current = getPiece(square); 
     if (current != EMPTY)
         stateStack[stackIndex].bitboards[current] &= ~mask;
 
@@ -121,7 +165,7 @@ void Chessboard::move(const Move& move)
         }
     }
 
-    // capture, if any
+    // capture
     int capStart = whiteToMove ? 6 : 0;
     int capEnd   = whiteToMove ? 12 : 6;
     for (int i = capStart; i < capEnd; ++i)
@@ -320,6 +364,81 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
         }
         
         // castling
+        // write code gangy
+
+        // diagonal moves (bishop and queen)
+        bb = stateStack[stackIndex].bitboards[wBishop] | stateStack[stackIndex].bitboards[wQueen];
+        while (bb)
+        {
+            square = lsbIndex(bb);
+            bb &= bb - 1;
+
+            uint64_t diagonalMoves = 0;
+
+            for (int dir = 0; dir < 4; ++dir)
+            {
+                uint64_t ray = diagonalRays[square][dir];
+                uint64_t blockers = ray & occupied;
+
+                if (blockers)
+                {
+                    u_int8_t blockerSquare;
+                    if (dir == 0 or dir == 1) blockerSquare = lsbIndex(blockers);
+                    else blockerSquare = msbIndex(blockers);
+
+                    ray &= ~diagonalRays[blockerSquare][dir];
+                }
+
+                diagonalMoves |= ray;
+            }
+
+            diagonalMoves &= ~whitePieces;
+            uint8_t target;
+            while (diagonalMoves)
+            {
+                target = lsbIndex(diagonalMoves);
+                diagonalMoves &= diagonalMoves - 1;
+                moves[numMoves++] = {square, target, EMPTY};
+
+            }
+        }
+
+        // orthogonal moves (rook and queen)
+        bb = stateStack[stackIndex].bitboards[wRook] | stateStack[stackIndex].bitboards[wQueen];
+        while (bb)
+        {
+            square = lsbIndex(bb);
+            bb &= bb - 1;
+
+            uint64_t orthogonalMoves = 0;
+
+            for (int dir = 0; dir < 4; ++dir)
+            {
+                uint64_t ray = orthogonalRays[square][dir];
+                uint64_t blockers = ray & occupied;
+
+                if (blockers)
+                {
+                    u_int8_t blockerSquare;
+                    if (dir == 0 or dir == 1) blockerSquare = lsbIndex(blockers);
+                    else blockerSquare = msbIndex(blockers);
+
+                    ray &= ~orthogonalRays[blockerSquare][dir];
+                }
+
+                orthogonalMoves |= ray;
+            }
+
+            orthogonalMoves &= ~whitePieces;
+            uint8_t target;
+            while (orthogonalMoves)
+            {
+                target = lsbIndex(orthogonalMoves);
+                orthogonalMoves &= orthogonalMoves - 1;
+                moves[numMoves++] = {square, target, EMPTY};
+
+            }
+        }
         
 
     }
@@ -424,20 +543,138 @@ void Chessboard::pseudoMoves(Move* moves, int& numMoves)
 
 bool Chessboard::isLegal(const Move& move)
 {
+    if (isDrawn()) return false;
+
     Move moves[218]; // 218 is the theoretical max number of legal moves in a position
     int numMoves;
     pseudoMoves(moves, numMoves);
 
+    // makes a move, if the king is attacked then returns false (i.e. illegal move)
     for (int i = 0; i < numMoves; ++i)
+    {
         if (move == moves[i])
-            return true;
-    
+        {
+            this->move(moves[i]);
+
+            bool illegal;
+
+            if (getTurn() == WHITE)
+            {
+                illegal = isAttacked(bKingSquare(), WHITE);
+            }
+            else
+            {
+                illegal = isAttacked(wKingSquare(), BLACK);
+            }
+
+            undo();
+
+            if (!illegal)
+            {
+                return true;
+            }
+        }
+    }
     return false;
 }
 
+
+// function to check whether a square is attacked by a colour
 bool Chessboard::isAttacked(uint8_t square, uint8_t colour)
 {
+    if (colour == WHITE)
+    {
+        // create a new bitboard with all pieces
+        uint64_t board = 0;
+        for (int i = 0; i > 12; ++i)
+        {
+            board |= stateStack[stackIndex].bitboards[i];
+        }
 
+        // check if attacked by a pawn
+        if ((((stateStack[stackIndex].bitboards[wPawn] & ~FILE_A) >> 9) | ((stateStack[stackIndex].bitboards[wPawn] & ~FILE_H) >> 7)) & (uint64_t(1) << square)) return true;
+
+        // check if attacked by knight
+        if (knightAttacks[square] & stateStack[stackIndex].bitboards[wKnight]) return true;
+
+        // check if attacked by a king
+    	if (kingAttacks[square] & stateStack[stackIndex].bitboards[wKing]) return true;
+
+		// check if diagonally attacked
+		uint64_t attackers = stateStack[stackIndex].bitboards[wQueen] | stateStack[stackIndex].bitboards[wBishop];
+		for (int i = 0; i < 4; ++i)
+		{
+			uint64_t blockers = diagonalRays[square][i] & board;
+			if (blockers & attackers)
+			{
+				uint8_t blockerIndex;
+				if (i == 0 || i == 3) blockerIndex = lsbIndex(blockers);
+				else blockerIndex = msbIndex(blockers);
+				if (attackers & (uint64_t(1) << blockerIndex)) return true;
+			}
+		}
+
+        // check if orthogonally attacked
+		attackers = stateStack[stackIndex].bitboards[wQueen] | stateStack[stackIndex].bitboards[wRook];
+		for (int i = 0; i < 4; ++i)
+		{
+			uint64_t blockers = orthogonalRays[square][i] & board;
+			if (blockers & attackers)
+			{
+				uint8_t blockerIndex;
+				if (i == 0 || i == 2) blockerIndex = lsbIndex(blockers);
+				else blockerIndex = msbIndex(blockers);
+				if (attackers & (uint64_t(1) << blockerIndex)) return true;
+			}
+		}
+    }
+    else if (colour == BLACK)
+    {
+        // create a new bitboard with all pieces
+        uint64_t board = 0;
+        for (int i = 0; i > 12; ++i)
+        {
+            board |= stateStack[stackIndex].bitboards[i];
+        }
+
+        // check if attacked by a pawn
+        if ((((stateStack[stackIndex].bitboards[bPawn] & ~FILE_A) >> 9) | ((stateStack[stackIndex].bitboards[bPawn] & ~FILE_H) >> 7)) & (uint64_t(1) << square)) return true;
+
+        // check if attacked by knight
+        if (knightAttacks[square] & stateStack[stackIndex].bitboards[bKnight]) return true;
+
+        // check if attacked by a king
+    	if (kingAttacks[square] & stateStack[stackIndex].bitboards[bKing]) return true;
+
+		// check if diagonally attacked
+		uint64_t attackers = stateStack[stackIndex].bitboards[bBishop] | stateStack[stackIndex].bitboards[bQueen];
+		for (int i = 0; i < 4; ++i)
+		{
+			uint64_t blockers = diagonalRays[square][i] & board;
+			if (blockers & attackers)
+			{
+				uint8_t blockerIndex;
+				if (i == 0 || i == 3) blockerIndex = lsbIndex(blockers);
+				else blockerIndex = msbIndex(blockers);
+				if (attackers & (uint64_t(1) << blockerIndex)) return true;
+			}
+		}
+
+        // check if orthogonally attacked
+		attackers = stateStack[stackIndex].bitboards[bRook] | stateStack[stackIndex].bitboards[bQueen];
+		for (int i = 0; i < 4; ++i)
+		{
+			uint64_t blockers = orthogonalRays[square][i] & board;
+			if (blockers & attackers)
+			{
+				uint8_t blockerIndex;
+				if (i == 0 || i == 2) blockerIndex = lsbIndex(blockers);
+				else blockerIndex = msbIndex(blockers);
+				if (attackers & (uint64_t(1) << blockerIndex)) return true;
+			}
+		}
+    }
+    return false;
 }
 
 uint8_t Chessboard::wKingSquare()
@@ -450,6 +687,35 @@ uint8_t Chessboard::bKingSquare()
     return lsbIndex(stateStack[stackIndex].bitboards[bKing]);
 }
 
+bool Chessboard::isDrawn()
+{
+	// 50 move rule
+	if (stateStack[stackIndex].numHalfMoves >= 100) return true;
+
+	// repetition
+	int n = 0;
+	for (int i = stackIndex - 1; i >= 0; --i)
+	{
+		if (stateStack[stackIndex].zobristHash == stateStack[i].zobristHash)
+		{
+			++n;
+			if (n > 1) return true;
+		}
+	}
+
+	// insufficient material
+	if (stateStack[stackIndex].bitboards[wPawn] || stateStack[stackIndex].bitboards[bPawn] ||
+		stateStack[stackIndex].bitboards[wRook] || stateStack[stackIndex].bitboards[bRook] ||
+		stateStack[stackIndex].bitboards[wQueen] || stateStack[stackIndex].bitboards[bQueen]) return false;
+	uint64_t white_bb = stateStack[stackIndex].bitboards[wBishop] | stateStack[stackIndex].bitboards[wKnight];
+	white_bb &= white_bb - 1;
+	uint64_t black_bb = stateStack[stackIndex].bitboards[bBishop] | stateStack[stackIndex].bitboards[bKnight];
+	black_bb &= black_bb - 1;
+	if (white_bb == 0 && black_bb == 0) return true;
+
+	// if no draws are found, then return false
+	return false;
+}
 
 Chessboard::~Chessboard()
 {
