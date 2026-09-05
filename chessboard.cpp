@@ -804,6 +804,42 @@ uint8_t Chessboard::bKingSquare()
     return lsbIndex(stateStack[stackIndex].bitboards[bKing]);
 }
 
+uint8_t Chessboard::gameResult()
+{
+    // find all pseudomoves
+    Move moves[256];
+    int numMoves;
+    pseudoMoves(moves, numMoves);
+
+    // check for legal moves
+    for (int i = 0; i < numMoves; ++i)
+    {
+        move(moves[i]);
+        bool illegal;
+
+        if (getTurn() == WHITE) 
+        {
+            // black just moved, so check if blacks king is attacked
+            illegal = isAttacked(bKingSquare(), WHITE);
+        }
+        else 
+        {
+            illegal = isAttacked(wKingSquare(), BLACK);
+        }
+        undo();
+
+        // if there are any legal moves, the game isnt over
+        if (!illegal) return EMPTY;        
+    }
+    // no legal moves
+    // black wins
+    if (getTurn() == WHITE && isAttacked(wKingSquare(), BLACK)) return BLACK;
+    // white wins
+    if (getTurn() == BLACK && isAttacked(bKingSquare(), WHITE)) return WHITE;
+    // draw
+    return DRAWN;
+}
+
 bool Chessboard::isDrawn()
 {
 	// 50 move rule

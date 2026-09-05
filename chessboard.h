@@ -95,7 +95,7 @@ class Chessboard
     uint8_t bKingSquare();
 
     // check for game ending
-    std::uint8_t gameEnded();
+    std::uint8_t gameResult();
     bool isDrawn();
 
     // constructor
