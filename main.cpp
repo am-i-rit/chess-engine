@@ -12,7 +12,7 @@ Chessboard game;
 Search search;
 
 Colour engineTurn = BLACK;
-uint8_t engineDepth = 5;
+uint8_t engineDepth = 4;
 
 struct SDLState
 {
@@ -319,7 +319,6 @@ void handleMouseClick(SDLState &state, float windowX, float windowY)
         return;
     }
 
-    // jazz chisholm jr
     if (game.getTurn() == engineTurn)
     {
         return;

@@ -5,7 +5,7 @@
 int Search::evaluate(const Chessboard &board) const
 {
     // returns an evaluation score relative to white
-    // the sign of the score will be made correct in negamax function
+    // the sign of the score will be made correct in the negamax function
     static constexpr int pieceValues[12] = {
         100, 300, 320, 500, 900, 0, 
         -100, -300, -320, -500, -900, 0
@@ -30,7 +30,7 @@ int Search::negamax(Chessboard& board, int depth)
     //     return 0;
     // }
 
-    // Depth limit
+    // depth limit
     if (depth <= 0)
     {
         uint8_t result = board.gameResult();

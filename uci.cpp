@@ -179,7 +179,7 @@ void UCI::run()
     {
         if (command == "uci")
         {
-            std::cout << "id name AmritEngine\n";
+            std::cout << "id name Rash-bot\n";
             std::cout << "id author Amrit Bhasin\n";
             std::cout << "uciok" << std::endl;
         }
