@@ -1,3 +1,4 @@
+// main.cpp
 #include <iostream>
 #include <cmath>
 #include <SDL3/SDL.h>

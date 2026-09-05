@@ -78,6 +78,9 @@ class Chessboard
 
 
  public:
+    // reset
+    void reset();
+
     std::uint8_t getPiece(std::uint8_t square);
     void setPiece(std::uint8_t piece, std::uint8_t square);
 
@@ -99,7 +102,7 @@ class Chessboard
     bool isDrawn();
 
     std::uint64_t getBitboard(std::uint8_t piece) const;
-    
+
     // constructor
     Chessboard(); 
 
