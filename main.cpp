@@ -11,7 +11,7 @@ Chessboard game;
 Search search;
 
 Colour engineTurn = BLACK;
-uint8_t engineDepth = 4;
+uint8_t engineDepth = 5;
 
 struct SDLState
 {
@@ -136,7 +136,30 @@ int main(int argc, char* argv[])
                 }
             }
         }
+
+
         render(state, assets);
+
+        if (running &&
+            state.promoteY == -1 &&
+            game.getTurn() == engineTurn &&
+            game.gameResult() == EMPTY)
+        {
+            Move engineMove =
+                search.findBestMove(game, engineDepth);
+
+            if (engineMove.from < 64)
+            {
+                moveStack[moveIndex] = engineMove;
+                ++moveIndex;
+
+                game.move(engineMove);
+
+                std::cout << "Nodes searched: "
+                        << search.getNodes() << '\n';
+            }
+        }
+
     }
     cleanupAssets(assets);
     cleanup(state);
@@ -292,6 +315,17 @@ void handleMouseClick(SDLState &state, float windowX, float windowY)
             }
         }
 
+        return;
+    }
+
+    // jazz chisholm jr
+    if (game.getTurn() == engineTurn)
+    {
+        return;
+    }
+
+    if (game.gameResult() != EMPTY)
+    {
         return;
     }
 

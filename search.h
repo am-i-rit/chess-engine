@@ -17,6 +17,4 @@ public:
     Move findBestMove(Chessboard& board, int depth);
     std::uint64_t getNodes() const;
 
-    // constructor
-    Search();
 };
