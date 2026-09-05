@@ -5,8 +5,13 @@
 #include <SDL3_image/SDL_image.h>
 #include "chessboard.h"
 #include "perft.h"
+#include "search.h"
 
 Chessboard game; 
+Search search;
+
+Colour engineTurn = BLACK;
+uint8_t engineDepth = 4;
 
 struct SDLState
 {

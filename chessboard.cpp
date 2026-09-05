@@ -870,6 +870,11 @@ bool Chessboard::isDrawn()
 	return false;
 }
 
+uint64_t Chessboard::getBitboard(uint8_t piece) const
+{
+    return stateStack[stackIndex].bitboards[piece];
+}
+
 Chessboard::~Chessboard()
 {
     delete[] stateStack;    

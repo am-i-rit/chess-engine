@@ -98,6 +98,8 @@ class Chessboard
     std::uint8_t gameResult();
     bool isDrawn();
 
+    std::uint64_t getBitboard(std::uint8_t piece) const;
+    
     // constructor
     Chessboard(); 
 

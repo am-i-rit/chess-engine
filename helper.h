@@ -32,3 +32,15 @@ inline std::uint8_t msbIndex(std::uint64_t x)
     memcpy(&bits, &d, sizeof(bits));
     return ((bits >> 52) & 0x7FF) - 1023;
 }
+
+// popcount function
+inline std::uint8_t popcount(uint64_t x)
+{
+    int count = 0;
+	while (x)
+	{
+		x &= x - 1;
+		++count;
+	}
+	return count;
+}
