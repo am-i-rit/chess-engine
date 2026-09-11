@@ -12,7 +12,7 @@ Chessboard game;
 Search search;
 
 Colour engineTurn = BLACK;
-uint8_t engineDepth = 4;
+uint8_t engineDepth = 2;
 
 struct SDLState
 {
@@ -158,6 +158,8 @@ int main(int argc, char* argv[])
 
                 std::cout << "Nodes searched: "
                         << search.getNodes() << '\n';
+                std::cout << "Evaluation: "
+                        <<  '\n';
             }
         }
 

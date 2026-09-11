@@ -6,32 +6,7 @@
 Chessboard::Chessboard()
 {
     stateStack = new boardState[1000];
-    stackIndex = 0;
-
-    stateStack[0].bitboards[wPawn]    = 0x00ff000000000000;
-    stateStack[0].bitboards[wKnight]  = 0x4200000000000000;
-    stateStack[0].bitboards[wBishop]  = 0x2400000000000000;
-    stateStack[0].bitboards[wRook]    = 0x8100000000000000;
-    stateStack[0].bitboards[wQueen]   = 0x0800000000000000;
-    stateStack[0].bitboards[wKing]    = 0x1000000000000000;
-    stateStack[0].bitboards[bPawn]    = 0x000000000000ff00;
-    stateStack[0].bitboards[bKnight]  = 0x0000000000000042;
-    stateStack[0].bitboards[bBishop]  = 0x0000000000000024;
-    stateStack[0].bitboards[bRook]    = 0x0000000000000081;
-    stateStack[0].bitboards[bQueen]   = 0x0000000000000008;
-    stateStack[0].bitboards[bKing]    = 0x0000000000000010;
-
-    stateStack[0].wKingside = true;
-    stateStack[0].wQueenside = true;
-    stateStack[0].bKingside = true;
-    stateStack[0].bQueenside = true;
-
-    stateStack[0].enpTarget = 0;
-
-    stateStack[0].turn = WHITE;
-
-    stateStack[0].numHalfMoves = 0;
-    stateStack[0].zobristHash = 0;
+    reset();
 
     // generate various bitboards for piece attacks
     for (int x = 0; x < 8; ++x)

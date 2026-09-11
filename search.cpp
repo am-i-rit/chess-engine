@@ -2,6 +2,86 @@
 #include "search.h"
 #include "helper.h"
 
+
+const int Search::middlegameTables[6][64] = {
+    // Pawn table
+    {
+        0,  0,  0,  0,  0,  0,  0,  0,
+        50, 50, 50, 50, 50, 50, 50, 50,
+        10, 10, 20, 30, 30, 20, 10, 10,
+        5,  5, 10, 25, 25, 10,  5,  5,
+        0,  0,  0, 20, 20,  0,  0,  0,
+        5, -5,-10,  0,  0,-10, -5,  5,
+        5, 10, 10,-20,-20, 10, 10,  5,
+        0,  0,  0,  0,  0,  0,  0,  0
+    },
+
+    // Knight table
+    {
+        -50,-40,-30,-30,-30,-30,-40,-50,
+        -40,-20,  0,  0,  0,  0,-20,-40,
+        -30,  0, 10, 15, 15, 10,  0,-30,
+        -30,  5, 15, 20, 20, 15,  5,-30,
+        -30,  0, 15, 20, 20, 15,  0,-30,
+        -30,  5, 10, 15, 15, 10,  5,-30,
+        -40,-20,  0,  5,  5,  0,-20,-40,
+        -50,-20,-30,-30,-30,-30,-20,-50,
+    },
+
+    // Bishop table
+    {
+        -20,-10,-10,-10,-10,-10,-10,-20,
+        -10,  0,  0,  0,  0,  0,  0,-10,
+        -10,  0,  5, 10, 10,  5,  0,-10,
+        -10,  5,  5, 10, 10,  5,  5,-10,
+        -10,  0, 10, 10, 10, 10,  0,-10,
+        -10, 10, 10, 10, 10, 10, 10,-10,
+        -10,  5,  0,  0,  0,  0,  5,-10,
+        -20,-10,-10,-10,-10,-10,-10,-20,
+    },
+
+    // rook table
+    {
+        0,  0,  0,  0,  0,  0,  0,  0,
+        5, 10, 10, 10, 10, 10, 10,  5,
+        -5,  0,  0,  0,  0,  0,  0, -5,
+        -5,  0,  0,  0,  0,  0,  0, -5,
+        -5,  0,  0,  0,  0,  0,  0, -5,
+        -5,  0,  0,  0,  0,  0,  0, -5,
+        -5,  0,  0,  0,  0,  0,  0, -5,
+        0,  0,  0,  5,  5,  0,  0,  0
+    },
+
+    // queen table
+    {
+        -20,-10,-10, -5, -5,-10,-10,-20,
+        -10,  0,  0,  0,  0,  0,  0,-10,
+        -10,  0,  5,  5,  5,  5,  0,-10,
+        -5,  0,  5,  5,  5,  5,  0, -5,
+        0,  0,  5,  5,  5,  5,  0, -5,
+        -10,  5,  5,  5,  5,  5,  0,-10,
+        -10,  0,  5,  0,  0,  0,  0,-10,
+        -20,-10,-10, -5, -5,-10,-10,-20
+    },
+
+    //king table
+    {
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -20,-30,-30,-40,-40,-30,-30,-20,
+        -10,-20,-20,-20,-20,-20,-20,-10,
+        20, 20,  0,  0,  0,  0, 20, 20,
+        20, 30, 10,  0,  0, 10, 30, 20
+    }
+};
+
+const int Search::endgameTables[6][64] = {
+    // Same six-piece structure
+};
+
+
 int Search::evaluate(const Chessboard &board) const
 {
     // returns an evaluation score relative to white
@@ -15,13 +95,28 @@ int Search::evaluate(const Chessboard &board) const
 
     for(int i = 0; i < 12; ++i)
     {
-        evaluation += popcount(board.getBitboard(i)) * pieceValues[i];
-    }
-    
+        uint64_t bb = board.getBitboard(i);
+        evaluation += popcount(bb) * pieceValues[i];
+
+        while (bb) {
+            int square = lsbIndex(bb);
+            bb &= bb - 1;
+
+            if (i < 6) {
+                evaluation += middlegameTables[i][square];
+            }
+            else {
+                int pieceType = i - 6;
+                int mirroredSquare = square ^ 56;
+
+                evaluation -= middlegameTables[pieceType][mirroredSquare];
+            }
+        }
+    }   
     return evaluation;
 }
 
-int Search::negamax(Chessboard& board, int depth)
+int Search::negamax(Chessboard& board, int depth, int alpha, int beta)
 {
     ++nodes;
 
@@ -60,7 +155,6 @@ int Search::negamax(Chessboard& board, int depth)
     int numMoves;
     board.pseudoMoves(moves, numMoves);
 
-    int bestScore = -1000000;
     int legalMoves = 0;
 
     for (int i = 0; i < numMoves; ++i)
@@ -88,15 +182,17 @@ int Search::negamax(Chessboard& board, int depth)
         {
             ++legalMoves;
 
-            int score = -negamax(board, depth - 1);
+            int score = -negamax(board, depth - 1, -beta, -alpha);
 
-            if (score > bestScore)
+            if (score > alpha)
             {
-                bestScore = score;
+                alpha = score;
             }
         }
 
         board.undo();
+
+        if (alpha >= beta) break;
     }
 
     if (legalMoves == 0)
@@ -126,7 +222,7 @@ int Search::negamax(Chessboard& board, int depth)
         return 0; // stalemate
     }
 
-    return bestScore;
+    return alpha;
 }
 
 Move Search::findBestMove(Chessboard& board, int depth)
@@ -138,7 +234,7 @@ Move Search::findBestMove(Chessboard& board, int depth)
     board.pseudoMoves(moves, numMoves);
 
     Move bestMove = {64, 64, EMPTY};
-    int bestScore = -1000000;
+    int alpha = -1000000;
     bool foundMove = false;
 
     for (int i = 0; i < numMoves; ++i)
@@ -164,11 +260,11 @@ Move Search::findBestMove(Chessboard& board, int depth)
 
         if (!illegal)
         {
-            int score = -negamax(board, depth - 1);
+            int score = -negamax(board, depth - 1, -1000000, -alpha);
 
-            if (!foundMove || score > bestScore)
+            if (!foundMove || score > alpha)
             {
-                bestScore = score;
+                alpha = score;
                 bestMove = moves[i];
                 foundMove = true;
             }

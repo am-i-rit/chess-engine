@@ -5,7 +5,7 @@
 
 Move UCI::parseMove(const std::string& text)
 {
-    if (text.size() < 4)
+    if (text.size() != 4 && text.size() != 5)
     {
         return {64, 64, EMPTY};
     }
@@ -180,7 +180,7 @@ void UCI::run()
         if (command == "uci")
         {
             std::cout << "id name Rash-bot\n";
-            std::cout << "id author Amrit Bhasin\n";
+            std::cout << "id author Amrit B.\n";
             std::cout << "uciok" << std::endl;
         }
         else if (command == "isready")
