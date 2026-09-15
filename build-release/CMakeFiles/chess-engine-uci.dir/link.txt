@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names "CMakeFiles/chess-engine-uci.dir/uci_main.cpp.o" "CMakeFiles/chess-engine-uci.dir/uci.cpp.o" "CMakeFiles/chess-engine-uci.dir/chessboard.cpp.o" "CMakeFiles/chess-engine-uci.dir/search.cpp.o" -o chess-engine-uci

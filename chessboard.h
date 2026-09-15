@@ -81,7 +81,7 @@ class Chessboard
     // reset
     void reset();
 
-    std::uint8_t getPiece(std::uint8_t square);
+    std::uint8_t getPiece(std::uint8_t square) const;
     void setPiece(std::uint8_t piece, std::uint8_t square);
 
     // make moves
@@ -94,6 +94,8 @@ class Chessboard
     void pseudoMoves(Move* moves, int& numMoves);
     bool isLegal(const Move& move);
     bool isAttacked(uint8_t square, uint8_t colour);
+    bool isCapture(const Move& move) const;
+
     uint8_t wKingSquare();
     uint8_t bKingSquare();
 

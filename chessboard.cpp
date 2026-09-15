@@ -128,7 +128,7 @@ void Chessboard::reset()
     stateStack[0].zobristHash = 0;
 }
 
-uint8_t Chessboard::getPiece(uint8_t square)
+uint8_t Chessboard::getPiece(uint8_t square) const
 {
     uint64_t mask = uint64_t(1) << square;
     for (int i = 0; i < 12; ++i)
@@ -668,7 +668,7 @@ bool Chessboard::isLegal(const Move& move)
 {
     // if (isDrawn()) return false;
 
-    Move moves[218]; // 218 is the theoretical max number of legal moves in a position
+    Move moves[256]; // 218 is the theoretical max number of legal moves in a position but were looking at pseudomoves
     int numMoves;
     pseudoMoves(moves, numMoves);
 
@@ -797,6 +797,29 @@ bool Chessboard::isAttacked(uint8_t square, uint8_t colour)
 			}
 		}
     }
+    return false;
+}
+
+bool Chessboard::isCapture(const Move& move) const
+{
+    uint64_t toBitboard = uint64_t(1) << move.to;
+
+    // A piece occupies the destination square.
+    for (int piece = 0; piece < 12; ++piece)
+    {
+        if (stateStack[stackIndex].bitboards[piece] & toBitboard)
+            return true;
+    }
+
+    // En passant: destination is empty, but a pawn is captured.
+    uint8_t movedPiece = getPiece(move.from);
+
+    if ((movedPiece == wPawn || movedPiece == bPawn) &&
+        (stateStack[stackIndex].enpTarget & toBitboard))
+    {
+        return true;
+    }
+
     return false;
 }
 
