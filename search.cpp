@@ -98,43 +98,26 @@ int Search::scoreMove(const Chessboard& board, const Move& move) const
     int score = 0;
 
     int attacker = board.getPiece(move.from);
-    int victim = board.getPiece(move.from);
-
-    int attackerType = 0;
-    if (attacker > 6) {
-        attackerType = attacker;
-    }
-    else {
-        attackerType = attacker - 6;
-    }
+    int attackerType = attacker % 6;
 
     // score promotions highest
     if (move.promotion != EMPTY) {
-        int promotionType;
-        if (move.promotion > 6) {
-            promotionType = move.promotion;
-        }
-        else {
-            promotionType = move.promotion - 6;
-        }
-
+        int promotionType = move.promotion % 6;
         score += 20000 + orderValues[promotionType];
     }
 
-    if (victim != EMPTY) {
+    if (board.isCapture(move)) {
+        int victim = board.getPiece(move.to);
         int victimType;
-        if (victim > 6) {
-            victimType = victim;
+        if (victim == EMPTY) {
+            victimType = 0;
         }
         else {
-            victimType = victim - 6;
+            victimType = victim % 6;
         }
-
-        score += 10000
-            + 10 * orderValues[victimType]
-            - orderValues[attackerType];
+        
+        score += 10000 + 10 * orderValues[victimType] - orderValues[attackerType];
     }
-
     return score;
 }
 
@@ -312,6 +295,12 @@ int Search::quiesce(Chessboard& board, int alpha, int beta) {
 
     // make sure we're not in check first
     bool inCheck;
+    if (board.getTurn() == WHITE) {
+        inCheck = board.isAttacked(board.wKingSquare(), BLACK);
+    }
+    else {
+        inCheck = board.isAttacked(board.bKingSquare(), WHITE);
+    }
 
     // stand pat
     if (!inCheck) {
