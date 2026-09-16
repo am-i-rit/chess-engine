@@ -1,4 +1,0 @@
-/Users/amritb/projects/chess-engine/build-release/CMakeFiles/chess-engine.dir
-/Users/amritb/projects/chess-engine/build-release/CMakeFiles/chess-engine-uci.dir
-/Users/amritb/projects/chess-engine/build-release/CMakeFiles/edit_cache.dir
-/Users/amritb/projects/chess-engine/build-release/CMakeFiles/rebuild_cache.dir
